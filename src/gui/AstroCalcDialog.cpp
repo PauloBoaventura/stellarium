@@ -1552,13 +1552,13 @@ void AstroCalcDialog::reGenerateEphemeris(bool withSelection)
 void AstroCalcDialog::generateEphemeris()
 {
 	double ra, dec;
-	Vec3d observerHelioPos, pos;
+	Vec3d observerHelioPos, pos, sunPos;
 	const QString currentPlanet = ui->celestialBodyComboBox->currentData(Qt::UserRole).toString();
 	const QString secondaryPlanet = ui->secondaryCelestialBodyComboBox->currentData(Qt::UserRole).toString();
 	const QString distanceInfo = (core->getUseTopocentricCoordinates() ? q_("Topocentric distance") : q_("Planetocentric distance"));
 	const QString distanceUM = qc_("AU", "distance, astronomical unit");
 	QString englishName, nameI18n, elongStr = "", phaseStr = "", raStr = "", decStr = "";
-	const bool horizon = ui->ephemerisHorizontalCoordinatesCheckBox->isChecked();
+	const bool useHorizontalCoords = ui->ephemerisHorizontalCoordinatesCheckBox->isChecked();
 	const bool useSouthAzimuth = StelApp::getInstance().getFlagSouthAzimuthUsage();
 	const bool withDecimalDegree = StelApp::getInstance().getFlagShowDecimalDegrees();
 
@@ -1571,7 +1571,8 @@ void AstroCalcDialog::generateEphemeris()
 	int idxRow = 0, colorIndex = 0;
 	double currentStep;
 	double solarDay = 1.0, siderealDay = 1.0, siderealYear = 365.256363004; // days
-	const PlanetP& cplanet = core->getCurrentPlanet();		
+	const PlanetP& cplanet = core->getCurrentPlanet();
+	const PlanetP& sun = solarSystem->getSun();
 	if (!cplanet->getEnglishName().contains("observer", Qt::CaseInsensitive))
 	{
 		if (cplanet==solarSystem->getEarth())
@@ -1757,6 +1758,10 @@ void AstroCalcDialog::generateEphemeris()
 			else
 				colorIndex = 0;
 		}
+		else if (obj->getPlanetType()==Planet::isComet)
+		{
+			colorIndex = 7; // This value will fall back to default marker color, but shall trigger comet icon.
+		}
 		else if (secondaryPlanet!="none")
 		{
 			colorIndex = (secondaryPlanet==englishName ? 1 : 0);
@@ -1773,9 +1778,11 @@ void AstroCalcDialog::generateEphemeris()
 			double JD = firstJD + i * currentStep;
 			core->setJD(JD);
 			core->update(0); // force update to get new coordinates
-			if (horizon)
+			float solarAngle=0.f;
+			if (useHorizontalCoords)
 			{
 				pos = obj->getAltAzPosAuto(core);
+				sunPos = sun->getAltAzPosAuto(core);
 				StelUtils::rectToSphe(&ra, &dec, pos);
 				double direction = 3.; // N is zero, E is 90 degrees
 				if (useSouthAzimuth)
@@ -1791,10 +1798,13 @@ void AstroCalcDialog::generateEphemeris()
 					raStr = StelUtils::radToDmsStr(ra, true);
 					decStr = StelUtils::radToDmsStr(dec, true);
 				}
+				// derive solarAngle
+				solarAngle=Planet::getPAsun(sunPos, pos);
 			}
 			else
 			{
 				pos = obj->getJ2000EquatorialPos(core);
+				sunPos = sun->getJ2000EquatorialPos(core);
 				StelUtils::rectToSphe(&ra, &dec, pos);
 				if (withDecimalDegree)
 				{
@@ -1806,6 +1816,8 @@ void AstroCalcDialog::generateEphemeris()
 					raStr = StelUtils::radToHmsStr(ra);
 					decStr = StelUtils::radToDmsStr(dec, true);
 				}
+				// derive solarAngle
+				solarAngle=Planet::getPAsun(sunPos, pos);
 			}
 
 			Ephemeris item;
@@ -1813,6 +1825,7 @@ void AstroCalcDialog::generateEphemeris()
 			item.colorIndex = colorIndex;			
 			item.objDate = JD;
 			item.magnitude = obj->getVMagnitudeWithExtinction(core);
+			item.solarAngle = solarAngle;
 			EphemerisList.append(item);
 
 			StelUtils::rectToSphe(&ra, &dec, pos);
