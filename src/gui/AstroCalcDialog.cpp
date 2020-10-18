@@ -1778,7 +1778,6 @@ void AstroCalcDialog::generateEphemeris()
 			double JD = firstJD + i * currentStep;
 			core->setJD(JD);
 			core->update(0); // force update to get new coordinates
-			float solarAngle=0.f;
 			if (useHorizontalCoords)
 			{
 				pos = obj->getAltAzPosAuto(core);
@@ -1798,8 +1797,6 @@ void AstroCalcDialog::generateEphemeris()
 					raStr = StelUtils::radToDmsStr(ra, true);
 					decStr = StelUtils::radToDmsStr(dec, true);
 				}
-				// derive solarAngle
-				solarAngle=Planet::getPAsun(sunPos, pos);
 			}
 			else
 			{
@@ -1816,16 +1813,14 @@ void AstroCalcDialog::generateEphemeris()
 					raStr = StelUtils::radToHmsStr(ra);
 					decStr = StelUtils::radToDmsStr(dec, true);
 				}
-				// derive solarAngle
-				solarAngle=Planet::getPAsun(sunPos, pos);
 			}
 
 			Ephemeris item;
 			item.coord = pos;
+			item.sunCoord = sunPos;
 			item.colorIndex = colorIndex;			
 			item.objDate = JD;
 			item.magnitude = obj->getVMagnitudeWithExtinction(core);
-			item.solarAngle = solarAngle;
 			EphemerisList.append(item);
 
 			StelUtils::rectToSphe(&ra, &dec, pos);
